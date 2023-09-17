@@ -1,0 +1,232 @@
+---
+title: "Machine Learning"
+output: pdf_document
+date: "2022-12-22"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = NA)
+reticulate::use_condaenv("wagathuenv")
+source("RF.R")
+```
+
+
+# Random Forest
+
+Random forests or random decision forests is an ensemble [^3] learning
+method for classification, regression and other tasks that operates by
+constructing a multitude of decision trees at training time. For
+classification tasks, the output of the random forest is the class
+selected by most trees. For regression tasks, the mean or average
+prediction of the individual trees is returned. Random decision forests
+correct for decision trees' habit of over fitting to their training.
+Random forests generally outperform decision trees.
+
+[^3]: In statistics and machine learning, ensemble methods use multiple
+    learning algorithms to obtain better predictive performance than
+    could be obtained from any of the constituent learning algorithms
+    alone, also Ensemble learning is a widely-used and preferred machine
+    learning technique in which multiple individual models, often called
+    base models, are combined to produce an effective optimal prediction
+    model. The Random Forest algorithm is an example of ensemble
+    learning.
+
+(This part considers the random forest classifier) Random forests are
+frequently used as "blackbox" [^4] models in businesses, as they
+generate reasonable predictions across a wide range of data while
+requiring little configuration.
+
+[^4]: A black box model is a system using inputs and outputs to create
+    useful information, without any knowledge of its internal workings.
+
+The fundamental concept behind random forest is a simple but powerful
+one --- the wisdom of crowds. In data science speak, the reason that the
+random forest model works so well is:
+
+A large number of relatively uncorrelated models (trees) operating as a
+committee will outperform any of the individual constituent models. Each
+tree in a random forest can pick only from a random subset of features.
+This forces even more variation amongst the trees in the model and
+ultimately results in lower correlation across trees and more
+diversification. So in our random forest, we end up with trees that are
+not only trained on different sets of data (thanks to bagging) but also
+use different features to make decisions.
+
+**How does it work?**
+
+Random forest algorithms have three main **hyperparameters**, which need
+to be set before training. These include **node size**, **the number of
+trees**, and **the number of features sampled**. From there, the random
+forest classifier can be used to solve for regression or classification
+problems.
+
+The following steps explain the working of a random forest
+
+-   Step 1: Select random samples from a given data or training set.
+
+-   Step 2: This algorithm will construct a decision tree for every
+    training data.
+
+-   Step 3: Voting will take place by averaging the decision tree.
+
+-   Step 4: Finally, select the most voted prediction result as the
+    final prediction result.
+
+The random forest algorithm is made up of a collection of decision
+trees, and each tree in the ensemble is comprised of a data sample drawn
+from a training set with replacement, called the **bootstrap sample**.
+Of that training sample, one-third of it is set aside as test data,
+known as the out-of-bag (oob) sample, which we'll come back to later.
+
+**Bagging**, also known as bootstrap aggregation, is the ensemble
+learning method that is commonly used to reduce variance within a noisy
+dataset. In bagging, a random sample of data in a training set is
+selected with replacement---meaning that the individual data points can
+be chosen more than once.
+
+**Bootstrapping** is the method of randomly creating samples of data out
+of a population with replacement to estimate a population parameter.
+
+In R it is done as follows;
+
+```{r}
+library(pacman)
+p_load(caTools, randomForest, readxl, dplyr)
+
+pima <- read.csv(("E:/Documents/R-Studio Programms/Machine Learning/pima.csv"))
+head(pima)
+pima <- pima|>
+  mutate(Outcome = factor(Outcome, levels = c(0,1), labels = c("Diabetic", "Not Diabetic")))|>
+  na.omit()
+
+glimpse(pima)
+
+#Splitting the data into training anf testing data set
+set.seed(123)
+split.size = .7
+sample.size = floor(split.size * nrow(pima))
+
+indi <- sample(seq_len(nrow(pima)), size = sample.size)
+
+Train <- pima[indi,]
+Test <- pima[-indi,]
+glimpse(Train)
+
+# Fitiing a random Forest 
+set.seed(123)
+classifier_RF <- randomForest(x =Train[-9], y = as.factor(Train$Outcome), ntree = 500 )
+y_pred <- predict(classifier_RF, newdata = Test[-9])
+```
+
+The confusion matrix and the results are as follows;
+
+```{r}
+classifier_RF
+
+```
+
+The plot is as follows
+
+```{r}
+plot(classifier_RF)
+```
+
+From the plot, the error reduces as the number of trees increases. The
+important features are;
+
+```{r}
+importance(classifier_RF)
+```
+
+The most important or significant feature is Glucose followed by BMI.
+The least important feature is skin thickness, as can be seen in the
+plot below;
+
+```{r}
+varImpPlot(classifier_RF)
+```
+
+The feature or variable importance describes which features are
+relevant. The higher the value the more important the feature. Feature
+or variable importance tells which features of our data are most helpful
+towards our goal, which can be both regression and Classification.
+
+Consider; The Turkish president thinks that high interest rates cause
+inflation, contrary to the traditional economic approach. For this
+reason, he dismissed two central bank chiefs within a year. And yes,
+unfortunately, the central bank officials have limited independence
+doing their job in Turkey contrary to the rest of the world.
+
+In order to check that we have to model inflation rates with some
+variables. The most common view of the economic authorities is that the
+variables affecting the rates are currency exchange rates, and
+CDS(credit default swap). Of course, we will also add the funding rates
+variable, the president mentioned, to the model to compare with the
+other explanatory variables.
+
+Because the variables can be highly correlated with each other, we will
+prefer the random forest model. This algorithm also has a built-in
+function to compute the feature importance.
+
+The data I am going tou use has the following variables;
+
+-   cpi: The annual consumer price index. It is also called the
+    inflation rate. This is our target variable.
+
+-   funding_rate: The one-week repo rate, which determined by the
+    Turkish Central Bank. It is also called the political rate.
+
+-   exchange_rate: The currency exchange rates between Turkish Liras and
+    American dollars.
+
+-   CDS: The credit defaults swap. It kind of measures the investment
+    risk of a country or company. It is mostly affected by foreign
+    policy developments in Turkey. Although the most popular CDS is
+    5year, I will take CDS of 1 year USD in this article.
+
+```{r}
+# Importing the data
+library(ggplot2)
+library(lubridate)
+cpi <- read_excel("E:/Documents/R-Studio Programms/Machine Learning/cpi.xlsx")
+cpi <- cpi |>
+  na.omit()
+head(cpi)
+cpi <- cpi |>
+  mutate(date = as.yearmon(date))
+
+# Visualization
+cpi|>
+  ggplot(aes(x = as.Date(date))) +
+  geom_line(aes(y = CPI), col = "royalblue", linewidth = .8)+
+  scale_x_date(date_labels = "%m-%y",date_breaks = "6 month") +
+  theme_minimal() +
+  xlab("Date")+
+  theme(axis.line = element_line(color = "royalblue"),axis.text.x = element_text(angle = 60, vjust = 0.4 , hjust = 0.4), axis.ticks = element_line(color = "red")) 
+```
+
+Thus the random forest regression [^5] is done as follow;
+
+[^5]: I the target variable is categorical, then R automatically does a
+    random forest classifier and if the target variable is continous, R
+    does a random forest regressor
+
+```{r}
+cpimodel <- randomForest(x = cpi[-c(1,3)], y = cpi$CPI, ntree = 500, importance = TRUE)
+cpimodel
+```
+
+Below is the feature importance plot
+
+```{r}
+importance(cpimodel)
+varImpPlot(cpimodel)
+```
+
+When we examine the charts above, we can clearly see that the funding
+and exchange rates have similar effects on the model and, CDS has
+significant importance in the behavior of the CPI. So the theory of the
+president seems to fall short of what he claims.
